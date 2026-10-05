@@ -11,9 +11,22 @@ def create_app(config_class=Config):
 
     db.init_app(app)
 
-    # Libera acesso do frontend (arquivos estáticos abertos via file://
-    # ou servidos por live-server/http.server em outra porta) para a API.
-    CORS(app, resources={r"/api/*": {"origins": "*"}})
+    cors_origins = app.config.get("CORS_ALLOWED_ORIGINS", "*")
+    if isinstance(cors_origins, str) and "," in cors_origins:
+        cors_origins = [origin.strip() for origin in cors_origins.split(",") if origin.strip()]
+
+    CORS(
+        app,
+        resources={r"/api/*": {"origins": cors_origins}},
+        supports_credentials=False,
+    )
+
+    @app.after_request
+    def add_security_headers(response):
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
 
     from app.routes.auth_routes import auth_bp
     from app.routes.itens_routes import itens_bp
